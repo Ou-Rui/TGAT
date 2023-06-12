@@ -49,11 +49,11 @@ parser.add_argument('--n_epoch', type=int, default=15, help='number of epochs')
 parser.add_argument('--n_layer', type=int, default=2)
 parser.add_argument('--lr', type=float, default=3e-4)
 parser.add_argument('--tune', action='store_true',
-                    help='parameters tunning mode, use train-test split on training data only.')
+                    help='parameters tuning mode, use train-test split on training data only.')
 parser.add_argument('--drop_out', type=float, default=0.1, help='dropout probability')
 parser.add_argument('--gpu', type=int, default=0, help='idx for the gpu to use')
-parser.add_argument('--node_dim', type=int, default=None, help='Dimentions of the node embedding')
-parser.add_argument('--time_dim', type=int, default=None, help='Dimentions of the time embedding')
+parser.add_argument('--node_dim', type=int, default=None, help='Dimensions of the node embedding')
+parser.add_argument('--time_dim', type=int, default=None, help='Dimensions of the time embedding')
 parser.add_argument('--agg_method', type=str, choices=['attn', 'lstm', 'mean'], help='local aggregation method',
                     default='attn')
 parser.add_argument('--attn_mode', type=str, choices=['prod', 'map'], default='prod')
@@ -109,33 +109,37 @@ g_df = pd.read_csv('./processed/ml_{}.csv'.format(DATA))
 e_feat = np.load('./processed/ml_{}.npy'.format(DATA))
 n_feat = np.load('./processed/ml_{}_node.npy'.format(DATA))
 
+# 按照时间划分数据集，0.7 : 0.15 : 0.15
 val_time, test_time = list(np.quantile(g_df.ts, [0.70, 0.85]))
 
-src_l = g_df.u.values
+# 以下5个数据结构：ndarray: [E]。排序：ts_l递增
+src_l = g_df.u.values       # 节点编号从1开始
 dst_l = g_df.i.values
-e_idx_l = g_df.idx.values
+e_idx_l = g_df.idx.values   # eid已经按照时间顺序组织，编号从1开始，1,2,3,4...
 label_l = g_df.label.values
 ts_l = g_df.ts.values
 
-max_src_index = src_l.max()
-max_idx = max(src_l.max(), dst_l.max())
+max_src_index = src_l.max()     # no use
+max_idx = max(src_l.max(), dst_l.max())     # number of nodes
 
 total_node_set = set(np.unique(np.hstack([g_df.u.values, g_df.i.values])))
 
+
 valid_train_flag = (ts_l <= test_time)
 valid_val_flag = (ts_l <= test_time)
+# 在前85%时间的边中继续划分：80% train，20% val（随机划分）
 assignment = np.random.randint(0, 10, len(valid_train_flag))
 valid_train_flag *= (assignment >= 2)
 valid_val_flag *= (assignment < 2)
 valid_test_flag = ts_l > test_time
 
 if args.tune:
+    # 调参数模式，用val选最佳参数
     train_src_l = src_l[valid_train_flag]
     train_dst_l = dst_l[valid_train_flag]
     train_ts_l = ts_l[valid_train_flag]
     train_e_idx_l = e_idx_l[valid_train_flag]
     train_label_l = label_l[valid_train_flag]
-
     # use the validation as test dataset
     test_src_l = src_l[valid_val_flag]
     test_dst_l = dst_l[valid_val_flag]
@@ -150,7 +154,6 @@ else:
     train_ts_l = ts_l[valid_train_flag]
     train_e_idx_l = e_idx_l[valid_train_flag]
     train_label_l = label_l[valid_train_flag]
-
     # use the true test dataset
     test_src_l = src_l[valid_test_flag]
     test_dst_l = dst_l[valid_test_flag]
@@ -159,6 +162,7 @@ else:
     test_label_l = label_l[valid_test_flag]
 
 ### Initialize the data structure for graph and edge sampling
+# 无向图的邻接表，存三元组(dst_nid, eid, ts)
 adj_list = [[] for _ in range(max_idx + 1)]
 for src, dst, eidx, ts in zip(train_src_l, train_dst_l, train_e_idx_l, train_ts_l):
     adj_list[src].append((dst, eidx, ts))
@@ -174,19 +178,19 @@ full_ngh_finder = NeighborFinder(full_adj_list, uniform=UNIFORM)
 
 ### Model initialize
 device = torch.device('cuda:{}'.format(GPU))
-tgan = TGAN(train_ngh_finder, n_feat, e_feat,
-            num_layers=NUM_LAYER, use_time=USE_TIME, agg_method=AGG_METHOD, attn_mode=ATTN_MODE,
-            seq_len=SEQ_LEN, n_head=NUM_HEADS, drop_out=DROP_OUT, node_dim=NODE_DIM, time_dim=TIME_DIM)
+tgan = TGAN(train_ngh_finder, n_feat, e_feat, num_layers=NUM_LAYER,
+            attn_mode=ATTN_MODE, use_time=USE_TIME, agg_method=AGG_METHOD,
+            seq_len=SEQ_LEN, n_head=NUM_HEADS, drop_out=DROP_OUT,
+            node_dim=NODE_DIM, time_dim=TIME_DIM)   # node_dim & time_dim no use
 # optimizer = torch.optim.Adam(tgan.parameters(), lr=LEARNING_RATE)
 # criterion = torch.nn.BCELoss()
 tgan = tgan.to(device)
 
-num_instance = len(train_src_l)
+num_instance = len(train_src_l)     # 训练集边的数量
 num_batch = math.ceil(num_instance / BATCH_SIZE)
-logger.debug('num of training instances: {}'.format(num_instance))
-logger.debug('num of batches per epoch: {}'.format(num_batch))
-idx_list = np.arange(num_instance)
-np.random.shuffle(idx_list)
+logger.debug(f'num of training instances: {num_instance}')
+logger.debug(f'num of batches per epoch: {num_batch}')
+# idx_list = np.arange(num_instance)
 
 logger.info('loading saved TGAN model')
 model_path = f'./saved_models/{args.prefix}-{args.agg_method}-{args.attn_mode}-{DATA}.pth'
@@ -195,11 +199,13 @@ tgan.eval()
 logger.info('TGAN models loaded')
 logger.info('Start training node classification task')
 
+""" NC Decoder: 3-layer MLP """
 lr_model = LR(n_feat.shape[1])
 lr_optimizer = torch.optim.Adam(lr_model.parameters(), lr=args.lr)
 lr_model = lr_model.to(device)
 tgan.ngh_finder = full_ngh_finder
-idx_list = np.arange(len(train_src_l))
+# idx_list = np.arange(num_instance)
+# criterion为什么还分两个？
 lr_criterion = torch.nn.BCELoss()
 lr_criterion_eval = torch.nn.BCELoss()
 
@@ -220,6 +226,7 @@ def eval_epoch(src_l, dst_l, ts_l, label_l, batch_size, lr_model, tgan, num_laye
             ts_l_cut = ts_l[s_idx:e_idx]
             label_l_cut = label_l[s_idx:e_idx]
             size = len(src_l_cut)
+            ''' NC调用tem_conv计算节点表示 '''
             src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, num_layer)
             src_label = torch.from_numpy(label_l_cut).float().to(device)
             lr_prob = lr_model(src_embed).sigmoid()
@@ -232,10 +239,10 @@ def eval_epoch(src_l, dst_l, ts_l, label_l, batch_size, lr_model, tgan, num_laye
 
 for epoch in tqdm(range(args.n_epoch)):
     lr_pred_prob = np.zeros(len(train_src_l))
-    np.random.shuffle(idx_list)
-    tgan = tgan.eval()
-    lr_model = lr_model.train()
-    # num_batch
+    # np.random.shuffle(idx_list)         # why shuffle? no use
+    tgan = tgan.eval()              # TGAT param fixed
+    lr_model = lr_model.train()     # Train Decoder only
+    # batch loop
     for k in range(num_batch):
         s_idx = k * BATCH_SIZE
         e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
@@ -243,8 +250,6 @@ for epoch in tqdm(range(args.n_epoch)):
         dst_l_cut = train_dst_l[s_idx:e_idx]
         ts_l_cut = train_ts_l[s_idx:e_idx]
         label_l_cut = train_label_l[s_idx:e_idx]
-
-        size = len(src_l_cut)
 
         lr_optimizer.zero_grad()
         with torch.no_grad():
@@ -256,11 +261,14 @@ for epoch in tqdm(range(args.n_epoch)):
         lr_loss.backward()
         lr_optimizer.step()
 
-    train_auc, train_loss = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l, BATCH_SIZE, lr_model, tgan)
-    test_auc, test_loss = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l, BATCH_SIZE, lr_model, tgan)
-    # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wkiki_node_class.pth'.format(DATA))
+    train_auc, train_loss = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
+                                       BATCH_SIZE, lr_model, tgan)
+    test_auc, test_loss = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
+                                     BATCH_SIZE, lr_model, tgan)
+    # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
     logger.info(f'train auc: {train_auc}, test auc: {test_auc}')
 
-test_auc, test_loss = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l, BATCH_SIZE, lr_model, tgan)
-# torch.save(lr_model.state_dict(), './saved_models/edge_{}_wkiki_node_class.pth'.format(DATA))
+test_auc, test_loss = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
+                                 BATCH_SIZE, lr_model, tgan)
+# torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
 logger.info(f'test auc: {test_auc}')

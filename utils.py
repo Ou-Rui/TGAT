@@ -31,6 +31,7 @@ class EarlyStopMonitor(object):
 
 
 class RandEdgeSampler(object):
+    """ Random Sampler for Negative Sampling """
     def __init__(self, src_list, dst_list):
         self.src_list = np.unique(src_list)
         self.dst_list = np.unique(dst_list)

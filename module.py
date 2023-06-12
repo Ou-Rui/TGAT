@@ -8,7 +8,16 @@ import torch.nn.functional as F
 
 
 class MergeLayer(torch.nn.Module):
+    """ Edge Decoder: 2-layer MLP """
     def __init__(self, dim1, dim2, dim3, dim4):
+        """
+            fc1:
+                input_dim = dim1 + dim2
+                out = dim3
+            fc2:
+                input = dim3
+                output = dim4
+        """
         super().__init__()
         # self.layer_norm = torch.nn.LayerNorm(dim1 + dim2)
         self.fc1 = torch.nn.Linear(dim1 + dim2, dim3)
@@ -26,19 +35,20 @@ class MergeLayer(torch.nn.Module):
 
 
 class ScaledDotProductAttention(torch.nn.Module):
-    ''' Scaled Dot-Product Attention '''
-
+    """ Scaled Dot-Product Attention """
     def __init__(self, temperature, attn_dropout=0.1):
         super().__init__()
-        self.temperature = temperature
+        self.temperature = temperature      # 分母，d_k^0.5
         self.dropout = torch.nn.Dropout(attn_dropout)
         self.softmax = torch.nn.Softmax(dim=2)
 
     def forward(self, q, k, v, mask=None):
+        # q * k, bmm=批量矩阵乘法
         attn = torch.bmm(q, k.transpose(1, 2))
         attn = attn / self.temperature
 
         if mask is not None:
+            # 在注意力计算中，通常会将不需要的位置的注意力权重设为一个较小的负数
             attn = attn.masked_fill(mask, -1e10)
 
         attn = self.softmax(attn)  # [n * b, l_q, l_k]
@@ -50,9 +60,12 @@ class ScaledDotProductAttention(torch.nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    ''' Multi-Head Attention module '''
-
+    """ Multi-Head Attention module """
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+        """
+            d_model: 模型给出的dim
+            d_k/d_v: 每个head的dim
+        """
         super().__init__()
 
         self.n_head = n_head
@@ -62,6 +75,7 @@ class MultiHeadAttention(nn.Module):
         self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
         self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
         self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
+        # 用正态分布初始化权重参数
         nn.init.normal_(self.w_qs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
         nn.init.normal_(self.w_ks.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
         nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
@@ -107,7 +121,7 @@ class MultiHeadAttention(nn.Module):
 
 
 class MapBasedMultiHeadAttention(nn.Module):
-    ''' Multi-Head Attention module '''
+    """ Multi-Head Attention module """
 
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
         super().__init__()
@@ -294,9 +308,7 @@ class MeanPool(torch.nn.Module):
 
 
 class AttnModel(torch.nn.Module):
-    """Attention based temporal layers
-    """
-
+    """Attention based temporal layers"""
     def __init__(self, feat_dim, edge_dim, time_dim,
                  attn_mode='prod', n_head=2, drop_out=0.1):
         """
@@ -318,7 +330,6 @@ class AttnModel(torch.nn.Module):
         # self.edge_fc = torch.nn.Linear(self.edge_in_dim, self.feat_dim, bias=False)
 
         self.merger = MergeLayer(self.model_dim, feat_dim, feat_dim, feat_dim)
-
         # self.act = torch.nn.ReLU()
 
         assert (self.model_dim % n_head == 0)
@@ -326,25 +337,27 @@ class AttnModel(torch.nn.Module):
         self.attn_mode = attn_mode
 
         if attn_mode == 'prod':
-            self.multi_head_target = MultiHeadAttention(n_head,
-                                                        d_model=self.model_dim,
-                                                        d_k=self.model_dim // n_head,
-                                                        d_v=self.model_dim // n_head,
-                                                        dropout=drop_out)
+            self.multi_head_target = \
+                MultiHeadAttention(n_head, d_model=self.model_dim,
+                                   d_k=self.model_dim // n_head,
+                                   d_v=self.model_dim // n_head,
+                                   dropout=drop_out)
             self.logger.info('Using scaled prod attention')
 
         elif attn_mode == 'map':
-            self.multi_head_target = MapBasedMultiHeadAttention(n_head,
-                                                                d_model=self.model_dim,
-                                                                d_k=self.model_dim // n_head,
-                                                                d_v=self.model_dim // n_head,
-                                                                dropout=drop_out)
+            self.multi_head_target = \
+                MapBasedMultiHeadAttention(n_head, d_model=self.model_dim,
+                                           d_k=self.model_dim // n_head,
+                                           d_v=self.model_dim // n_head,
+                                           dropout=drop_out)
             self.logger.info('Using map based attention')
         else:
             raise ValueError('attn_mode can only be prod or map')
 
     def forward(self, src, src_t, seq, seq_t, seq_e, mask):
-        """"Attention based temporal attention forward pass
+        """
+        Attention based temporal attention forward pass
+        -----------------
         args:
           src: float Tensor of shape [B, D]
           src_t: float Tensor of shape [B, Dt], Dt == D
@@ -352,14 +365,13 @@ class AttnModel(torch.nn.Module):
           seq_t: float Tensor of shape [B, N, Dt]
           seq_e: float Tensor of shape [B, N, De], De == D
           mask: boolean Tensor of shape [B, N], where the true value indicate a null value in the sequence.
-
+        --------------------
         returns:
           output, weight
 
           output: float Tensor of shape [B, D]
           weight: float Tensor of shape [B, N]
         """
-
         src_ext = torch.unsqueeze(src, dim=1)  # src [B, 1, D]
         src_e_ph = torch.zeros_like(src_ext)
         q = torch.cat([src_ext, src_e_ph, src_t], dim=2)  # [B, 1, D + De + Dt] -> [B, 1, D]
@@ -368,7 +380,7 @@ class AttnModel(torch.nn.Module):
         mask = torch.unsqueeze(mask, dim=2)  # mask [B, N, 1]
         mask = mask.permute([0, 2, 1])  # mask [B, 1, N]
 
-        # # target-attention
+        # target-attention
         output, attn = self.multi_head_target(q=q, k=k, v=k, mask=mask)  # output: [B, 1, D + Dt], attn: [B, 1, N]
         output = output.squeeze()
         attn = attn.squeeze()
@@ -379,47 +391,48 @@ class AttnModel(torch.nn.Module):
 
 class TGAN(torch.nn.Module):
     def __init__(self, ngh_finder, n_feat, e_feat,
-                 attn_mode='prod', use_time='time', agg_method='attn', node_dim=None, time_dim=None,
-                 num_layers=3, n_head=4, null_idx=0, num_heads=1, drop_out=0.1, seq_len=None):
+                 agg_method='attn', attn_mode='prod', use_time='time', node_dim=None, time_dim=None,
+                 num_layers=3, n_head=4, null_idx=0, drop_out=0.1, seq_len=None):
         super(TGAN, self).__init__()
 
         self.num_layers = num_layers
         self.ngh_finder = ngh_finder
-        self.null_idx = null_idx
+        self.null_idx = null_idx    # no use
         self.logger = logging.getLogger(__name__)
         self.n_feat_th = torch.nn.Parameter(torch.from_numpy(n_feat.astype(np.float32)))
         self.e_feat_th = torch.nn.Parameter(torch.from_numpy(e_feat.astype(np.float32)))
-        self.edge_raw_embed = torch.nn.Embedding.from_pretrained(self.e_feat_th, padding_idx=0, freeze=True)
-        self.node_raw_embed = torch.nn.Embedding.from_pretrained(self.n_feat_th, padding_idx=0, freeze=True)
+        # 原始嵌入h0？是可调的参数？初值等于初始特征
+        self.edge_raw_embed = torch.nn.Embedding.from_pretrained(
+            self.e_feat_th, padding_idx=0, freeze=True)
+        self.node_raw_embed = torch.nn.Embedding.from_pretrained(
+            self.n_feat_th, padding_idx=0, freeze=True)
 
         self.feat_dim = self.n_feat_th.shape[1]
-
         self.n_feat_dim = self.feat_dim
         self.e_feat_dim = self.feat_dim
         self.model_dim = self.feat_dim
 
         self.use_time = use_time
-        self.merge_layer = MergeLayer(self.feat_dim, self.feat_dim, self.feat_dim, self.feat_dim)
+        self.merge_layer = MergeLayer(self.feat_dim, self.feat_dim,
+                                      self.feat_dim, self.feat_dim)
 
         if agg_method == 'attn':
             self.logger.info('Aggregation uses attention model')
-            self.attn_model_list = torch.nn.ModuleList([AttnModel(self.feat_dim,
-                                                                  self.feat_dim,
-                                                                  self.feat_dim,
-                                                                  attn_mode=attn_mode,
-                                                                  n_head=n_head,
-                                                                  drop_out=drop_out) for _ in range(num_layers)])
+            self.attn_model_list = torch.nn.ModuleList(
+                [AttnModel(self.feat_dim, self.feat_dim, self.feat_dim,
+                           attn_mode=attn_mode, n_head=n_head, drop_out=drop_out)
+                 for _ in range(num_layers)])
         elif agg_method == 'lstm':
             self.logger.info('Aggregation uses LSTM model')
-            self.attn_model_list = torch.nn.ModuleList([LSTMPool(self.feat_dim,
-                                                                 self.feat_dim,
-                                                                 self.feat_dim) for _ in range(num_layers)])
+            self.attn_model_list = torch.nn.ModuleList(
+                [LSTMPool(self.feat_dim, self.feat_dim, self.feat_dim)
+                 for _ in range(num_layers)])
         elif agg_method == 'mean':
             self.logger.info('Aggregation uses constant mean model')
-            self.attn_model_list = torch.nn.ModuleList([MeanPool(self.feat_dim,
-                                                                 self.feat_dim) for _ in range(num_layers)])
+            self.attn_model_list = torch.nn.ModuleList(
+                [MeanPool(self.feat_dim, self.feat_dim)
+                 for _ in range(num_layers)])
         else:
-
             raise ValueError('invalid agg_method value, use attn or lstm')
 
         if use_time == 'time':
@@ -435,8 +448,8 @@ class TGAN(torch.nn.Module):
         else:
             raise ValueError('invalid time option!')
 
-        self.affinity_score = MergeLayer(self.feat_dim, self.feat_dim, self.feat_dim,
-                                         1)  # torch.nn.Bilinear(self.feat_dim, self.feat_dim, 1, bias=True)
+        self.affinity_score = MergeLayer(self.feat_dim, self.feat_dim, self.feat_dim, 1)
+        # torch.nn.Bilinear(self.feat_dim, self.feat_dim, 1, bias=True)
 
     def forward(self, src_idx_l, target_idx_l, cut_time_l, num_neighbors=20):
 
@@ -448,6 +461,16 @@ class TGAN(torch.nn.Module):
         return score
 
     def contrast(self, src_idx_l, target_idx_l, background_idx_l, cut_time_l, num_neighbors=20):
+        """
+        链接预测时，输入正负边，输出模型预测边存在的概率值
+        --------------------------------
+        Param:
+            src_idx_l: 源节点
+            target_idx_l: 目标节点
+            background_idx_l: 负采样的假目标节点
+            cut_time_l: 对应边的ts
+            num_neighbors: 采样邻居数量
+        """
         src_embed = self.tem_conv(src_idx_l, cut_time_l, self.num_layers, num_neighbors)
         target_embed = self.tem_conv(target_idx_l, cut_time_l, self.num_layers, num_neighbors)
         background_embed = self.tem_conv(background_idx_l, cut_time_l, self.num_layers, num_neighbors)
@@ -457,9 +480,7 @@ class TGAN(torch.nn.Module):
 
     def tem_conv(self, src_idx_l, cut_time_l, curr_layers, num_neighbors=20):
         assert (curr_layers >= 0)
-
         device = self.n_feat_th.device
-
         batch_size = len(src_idx_l)
 
         src_node_batch_th = torch.from_numpy(src_idx_l).long().to(device)
@@ -473,25 +494,22 @@ class TGAN(torch.nn.Module):
         if curr_layers == 0:
             return src_node_feat
         else:
-            src_node_conv_feat = self.tem_conv(src_idx_l,
-                                               cut_time_l,
+            # 递归调用
+            src_node_conv_feat = self.tem_conv(src_idx_l, cut_time_l,
                                                curr_layers=curr_layers - 1,
                                                num_neighbors=num_neighbors)
-
-            src_ngh_node_batch, src_ngh_eidx_batch, src_ngh_t_batch = self.ngh_finder.get_temporal_neighbor(
-                src_idx_l,
-                cut_time_l,
-                num_neighbors=num_neighbors)
-
+            # 获取邻居节点表示
+            src_ngh_node_batch, src_ngh_eidx_batch, src_ngh_t_batch = \
+                self.ngh_finder.get_temporal_neighbor(src_idx_l, cut_time_l, num_neighbors=num_neighbors)
             src_ngh_node_batch_th = torch.from_numpy(src_ngh_node_batch).long().to(device)
             src_ngh_eidx_batch = torch.from_numpy(src_ngh_eidx_batch).long().to(device)
-
+            # 计算时间间隔
             src_ngh_t_batch_delta = cut_time_l[:, np.newaxis] - src_ngh_t_batch
             src_ngh_t_batch_th = torch.from_numpy(src_ngh_t_batch_delta).float().to(device)
-
-            # get previous layer's node features
+            # Reshape
             src_ngh_node_batch_flat = src_ngh_node_batch.flatten()  # reshape(batch_size, -1)
             src_ngh_t_batch_flat = src_ngh_t_batch.flatten()  # reshape(batch_size, -1)
+            # 聚合
             src_ngh_node_conv_feat = self.tem_conv(src_ngh_node_batch_flat,
                                                    src_ngh_t_batch_flat,
                                                    curr_layers=curr_layers - 1,

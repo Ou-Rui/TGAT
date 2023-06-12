@@ -58,7 +58,8 @@ def reindex(df):
 
 
 def run(data_name):
-    PATH = './processed/{}.csv'.format(data_name)
+    # PATH = './processed/{}.csv'.format(data_name)
+    PATH = '../Datasets/{}.csv'.format(data_name)
     OUT_DF = './processed/ml_{}.csv'.format(data_name)
     OUT_FEAT = './processed/ml_{}.npy'.format(data_name)
     OUT_NODE_FEAT = './processed/ml_{}_node.npy'.format(data_name)
@@ -79,6 +80,6 @@ def run(data_name):
     np.save(OUT_NODE_FEAT, rand_feat)
 
 
-run('wikipedia')
+# run('wikipedia')
 
-# run('reddit')
+run('reddit')

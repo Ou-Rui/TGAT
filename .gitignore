@@ -1,0 +1,5 @@
+log/*
+processed/*
+saved_checkpoints/*
+saved_models/*
+venv/*
