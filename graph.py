@@ -134,9 +134,15 @@ class NeighborFinder:
                 else:
                     ''' 按时间采样最老的邻居？？？？？ '''
                     # 目前是这种
-                    ngh_ts = ngh_ts[:num_neighbors]
-                    ngh_idx = ngh_idx[:num_neighbors]
-                    ngh_eidx = ngh_eidx[:num_neighbors]
+                    # ngh_ts = ngh_ts[:num_neighbors]
+                    # ngh_idx = ngh_idx[:num_neighbors]
+                    # ngh_eidx = ngh_eidx[:num_neighbors]
+
+                    # 我写的，按最新ts的采样邻居，应该是这种才对
+                    nei_idx = max(0, len(ngh_idx) - num_neighbors)
+                    ngh_ts = ngh_ts[nei_idx:]
+                    ngh_idx = ngh_idx[nei_idx:]
+                    ngh_eidx = ngh_eidx[nei_idx:]
 
                     assert (len(ngh_idx) <= num_neighbors)
                     assert (len(ngh_ts) <= num_neighbors)

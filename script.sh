@@ -5,5 +5,5 @@
 loop_num=10
 for ((i=0;i<=10;i++))
 do
-  python learn_edge.py --prefix ${i}
+  python learn_edge.py --prefix newest${i}
 done
