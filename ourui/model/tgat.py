@@ -53,7 +53,7 @@ class TGAT(nn.Module):
         """
         self.feat_dim = feat_dim
         self.emb_dim = emb_dim
-        self.time_encoder = None  # TODO:TE
+        self.time_encoder = None
         self.attn_list = torch.nn.ModuleList()
         for i in range(num_layers):
             input_dim = feat_dim if i == 0 else emb_dim
