@@ -352,4 +352,4 @@ logger.info('Test statistics: New nodes -- acc: {}, auc: {}, ap: {}'
 
 logger.info('Saving TGAN model')
 torch.save(tgan.state_dict(), MODEL_SAVE_PATH)
-logger.info('TGAN models saved')
+logger.info('TGAN model saved')

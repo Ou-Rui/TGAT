@@ -4,8 +4,6 @@ RUN ME IN {project_foler}/ourui/
 
 python preprocess/BuildDglGraph.py -d wikipedia
 """
-
-
 import dgl
 import torch
 import argparse
@@ -36,14 +34,19 @@ src = torch.tensor(graph_df.u.values)
 dst = torch.tensor(graph_df.i.values)
 label = torch.tensor(graph_df.label.values, dtype=torch.float32)
 timestamp = torch.tensor(graph_df.ts.values, dtype=torch.float32)
+# preprocess_csv.py中在edge_feat第一行插入了空行，因此从索引1开始取feat
 edge_feat = torch.tensor(edge_features[1:], dtype=torch.float32)
 
+# 无向图，添加反向边
 g = dgl.graph((torch.cat([src, dst]), torch.cat([dst, src])))
 len_event = src.shape[0]
-
+# repeat(2)也是用于反向边
 g.edata['label'] = label.repeat(2).squeeze()
 g.edata['timestamp'] = timestamp.repeat(2).squeeze()
 g.edata['feat'] = edge_feat.repeat(2, 1).squeeze()
+
+# 计算节点的ts，为相邻边ts的最大值
+g.update_all(fn.copy_e('timestamp', 'm'), fn.max('m', 'timestamp'))
 
 print(g)
 save_graphs(OUT_PATH, g)

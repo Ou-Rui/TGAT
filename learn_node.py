@@ -196,7 +196,7 @@ logger.info('loading saved TGAN model')
 model_path = f'./saved_models/{args.prefix}-{args.agg_method}-{args.attn_mode}-{DATA}.pth'
 tgan.load_state_dict(torch.load(model_path))
 tgan.eval()
-logger.info('TGAN models loaded')
+logger.info('TGAN model loaded')
 logger.info('Start training node classification task')
 
 """ NC Decoder: 3-layer MLP """

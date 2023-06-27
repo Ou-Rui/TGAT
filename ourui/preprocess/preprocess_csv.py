@@ -17,7 +17,7 @@ import os
 
 parser = argparse.ArgumentParser('Interface for data preprocessing')
 parser.add_argument('-d', '--dataset', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='wiki')
+                    default='wikipedia')
 args = parser.parse_args()
 
 DATASET_PATH = "/root/ourui/Datasets"
@@ -48,7 +48,7 @@ def preprocess(args):
 
             u, i = reindex.user2id(args, u, i)
             # dataset are sorted by timestamp
-            ts = float(e[2])
+            ts = float(e[2])        # ts start from 0.0 (wikipedia)
             label = float(e[3])  # int(e[3])
 
             feat = [float(x) for x in e[4:]]
