@@ -3,3 +3,4 @@ processed/*
 saved_checkpoints/*
 saved_models/*
 venv/*
+ourui/processed_data/*
