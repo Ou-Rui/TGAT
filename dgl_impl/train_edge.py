@@ -1,5 +1,5 @@
 """
-RUN ME IN {project_foler}/ourui/
+RUN ME IN {project_foler}/dgl_impl/
 
 python train_edge.py -d wikipedia
 """
@@ -16,7 +16,7 @@ import psutil
 from dgl.data.utils import load_graphs
 from pathlib import Path
 
-from dataloader.TemporalSampler import MultiLayerTemporalNeighborSampler
+from dataloader.samplers import MultiLayerTemporalNeighborSampler
 
 parser = argparse.ArgumentParser('TGAT DGL train_edge TEST')
 parser.add_argument('-d', '--dataset', type=str, choices=["wikipedia", "reddit"],

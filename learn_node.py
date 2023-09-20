@@ -124,7 +124,7 @@ max_idx = max(src_l.max(), dst_l.max())     # number of nodes
 
 total_node_set = set(np.unique(np.hstack([g_df.u.values, g_df.i.values])))
 
-
+''' 前85%: train + val (8:2的比例, 随机分); 后15%: test'''
 valid_train_flag = (ts_l <= test_time)
 valid_val_flag = (ts_l <= test_time)
 # 在前85%时间的边中继续划分：80% train，20% val（随机划分）

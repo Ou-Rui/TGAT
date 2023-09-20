@@ -1,6 +1,6 @@
 """
 copy from APAN
-RUN ME IN {project_foler}/ourui/
+RUN ME IN {project_foler}/dgl_impl/
 
 python preprocess/BuildDglGraph.py -d wikipedia
 """

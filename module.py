@@ -494,11 +494,12 @@ class TGAN(torch.nn.Module):
         if curr_layers == 0:
             return src_node_feat
         else:
-            # 递归调用
+            # 递归调用，l-1层src节点的表示
             src_node_conv_feat = self.tem_conv(src_idx_l, cut_time_l,
                                                curr_layers=curr_layers - 1,
                                                num_neighbors=num_neighbors)
-            # 获取邻居节点表示
+            ''' 获取src的l-1层邻居节点表示 '''
+            # 先找到邻居节点
             src_ngh_node_batch, src_ngh_eidx_batch, src_ngh_t_batch = \
                 self.ngh_finder.get_temporal_neighbor(src_idx_l, cut_time_l, num_neighbors=num_neighbors)
             src_ngh_node_batch_th = torch.from_numpy(src_ngh_node_batch).long().to(device)
@@ -509,7 +510,7 @@ class TGAN(torch.nn.Module):
             # Reshape
             src_ngh_node_batch_flat = src_ngh_node_batch.flatten()  # reshape(batch_size, -1)
             src_ngh_t_batch_flat = src_ngh_t_batch.flatten()  # reshape(batch_size, -1)
-            # 聚合
+            # 以邻居节点为src，聚合
             src_ngh_node_conv_feat = self.tem_conv(src_ngh_node_batch_flat,
                                                    src_ngh_t_batch_flat,
                                                    curr_layers=curr_layers - 1,

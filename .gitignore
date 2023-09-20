@@ -3,4 +3,6 @@ processed/*
 saved_checkpoints/*
 saved_models/*
 venv/*
-ourui/processed_data/*
+dgl_impl/processed_data/*
+.idea/*
+*.pyc
