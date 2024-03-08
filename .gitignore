@@ -6,3 +6,4 @@ venv/*
 dgl_impl/processed_data/*
 .idea/*
 *.pyc
+*.npy
