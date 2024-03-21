@@ -1,4 +1,9 @@
-"""Unified interface to all dynamic graph model experiments"""
+"""
+Unified interface to all dynamic graph model experiments
+
+python -u learn_edge.py -d wikipedia --bs 200 --uniform  --n_degree 20 --agg_method attn --attn_mode prod --gpu 0 --n_head 2 --prefix hello_world
+python -u learn_edge.py -d txn_filter --bs 200 --uniform  --n_degree 20 --agg_method attn --attn_mode prod --gpu 0 --n_head 2 --prefix 240321
+"""
 import math
 import logging
 import time
@@ -91,37 +96,37 @@ logger.info(args)
 
 
 def eval_one_epoch(hint, tgan, sampler, src, dst, ts, label):
-    val_acc, val_ap, val_f1, val_auc = [], [], [], []
-    with torch.no_grad():
-        tgan = tgan.eval()
-        TEST_BATCH_SIZE = 30
-        num_test_instance = len(src)
-        num_test_batch = math.ceil(num_test_instance / TEST_BATCH_SIZE)
-        for k in range(num_test_batch):
-            # percent = 100 * k / num_test_batch
-            # if k % int(0.2 * num_test_batch) == 0:
-            #     logger.info('{0} progress: {1:10.4f}'.format(hint, percent))
-            s_idx = k * TEST_BATCH_SIZE
-            e_idx = min(num_test_instance - 1, s_idx + TEST_BATCH_SIZE)
-            src_l_cut = src[s_idx:e_idx]
-            dst_l_cut = dst[s_idx:e_idx]
-            ts_l_cut = ts[s_idx:e_idx]
-            # label_l_cut = label[s_idx:e_idx]
+  val_acc, val_ap, val_f1, val_auc = [], [], [], []
+  with torch.no_grad():
+    tgan = tgan.eval()
+    TEST_BATCH_SIZE = 30
+    num_test_instance = len(src)
+    num_test_batch = math.ceil(num_test_instance / TEST_BATCH_SIZE)
+    for k in range(num_test_batch):
+      # percent = 100 * k / num_test_batch
+      # if k % int(0.2 * num_test_batch) == 0:
+      #     logger.info('{0} progress: {1:10.4f}'.format(hint, percent))
+      s_idx = k * TEST_BATCH_SIZE
+      e_idx = min(num_test_instance - 1, s_idx + TEST_BATCH_SIZE)
+      src_l_cut = src[s_idx:e_idx]
+      dst_l_cut = dst[s_idx:e_idx]
+      ts_l_cut = ts[s_idx:e_idx]
+      # label_l_cut = label[s_idx:e_idx]
 
-            size = len(src_l_cut)
-            src_l_fake, dst_l_fake = sampler.sample(size)
+      size = len(src_l_cut)
+      src_l_fake, dst_l_fake = sampler.sample(size)
 
-            pos_prob, neg_prob = tgan.contrast(src_l_cut, dst_l_cut, dst_l_fake, ts_l_cut, NUM_NEIGHBORS)
+      pos_prob, neg_prob = tgan.contrast(src_l_cut, dst_l_cut, dst_l_fake, ts_l_cut, NUM_NEIGHBORS)
 
-            pred_score = np.concatenate([(pos_prob).cpu().numpy(), (neg_prob).cpu().numpy()])
-            pred_label = pred_score > 0.5
-            true_label = np.concatenate([np.ones(size), np.zeros(size)])
+      pred_score = np.concatenate([(pos_prob).cpu().numpy(), (neg_prob).cpu().numpy()])
+      pred_label = pred_score > 0.5
+      true_label = np.concatenate([np.ones(size), np.zeros(size)])
 
-            val_acc.append((pred_label == true_label).mean())
-            val_ap.append(average_precision_score(true_label, pred_score))
-            # val_f1.append(f1_score(true_label, pred_label))
-            val_auc.append(roc_auc_score(true_label, pred_score))
-    return np.mean(val_acc), np.mean(val_ap), np.mean(val_f1), np.mean(val_auc)
+      val_acc.append((pred_label == true_label).mean())
+      val_ap.append(average_precision_score(true_label, pred_score))
+      # val_f1.append(f1_score(true_label, pred_label))
+      val_auc.append(roc_auc_score(true_label, pred_score))
+  return np.mean(val_acc), np.mean(val_ap), np.mean(val_f1), np.mean(val_auc)
 
 
 ### Load data and train val test split
@@ -148,8 +153,8 @@ total_node_set = set(np.unique(np.hstack([g_df.u.values, g_df.i.values])))
 num_total_unique_nodes = len(total_node_set)  # number of nodes == max_idx
 
 """
-    随机mask节点，用于验证未见过节点的LP？
-    采样范围：ts > val_time的边的两端节点
+    随机mask节点, 用于验证未见过节点的LP?
+    采样范围: ts > val_time的边的两端节点
     采样总结点数量的10%
 """
 # ts_l > val_time：返回ts_l中，值大于val_time对应的索引，有多个索引组成列表
@@ -214,15 +219,15 @@ nn_test_label_l = label_l[nn_test_flag]
 # graph only contains the training data (with 10% nodes removal)
 adj_list = [[] for _ in range(max_idx + 1)]
 for src, dst, eidx, ts in zip(train_src_l, train_dst_l, train_e_idx_l, train_ts_l):
-    adj_list[src].append((dst, eidx, ts))
-    adj_list[dst].append((src, eidx, ts))
+  adj_list[src].append((dst, eidx, ts))
+  adj_list[dst].append((src, eidx, ts))
 train_ngh_finder = NeighborFinder(adj_list, uniform=UNIFORM)  # 训练集只包含部分图（Inductive）
 
 # full graph with all the data for the test and validation purpose
 full_adj_list = [[] for _ in range(max_idx + 1)]
 for src, dst, eidx, ts in zip(src_l, dst_l, e_idx_l, ts_l):
-    full_adj_list[src].append((dst, eidx, ts))
-    full_adj_list[dst].append((src, eidx, ts))
+  full_adj_list[src].append((dst, eidx, ts))
+  full_adj_list[dst].append((src, eidx, ts))
 full_ngh_finder = NeighborFinder(full_adj_list, uniform=UNIFORM)
 
 train_rand_sampler = RandEdgeSampler(train_src_l, train_dst_l)
@@ -253,85 +258,85 @@ early_stopper = EarlyStopMonitor()
 
 """ Epoch Loop """
 for epoch in range(NUM_EPOCH):
-    # Training use only training graph
-    tgan.ngh_finder = train_ngh_finder
-    acc, ap, f1, auc, m_loss = [], [], [], [], []
-    np.random.shuffle(idx_list)     # no use
-    logger.info('start {} epoch'.format(epoch))
-    """ Batch Loop """
-    for k in range(num_batch):
-        # percent = 100 * k / num_batch
-        # if k % int(0.2 * num_batch) == 0:
-        #     logger.info('progress: {0:10.4f}'.format(percent))
-        s_idx = k * BATCH_SIZE
-        e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
-        src_l_cut, dst_l_cut = train_src_l[s_idx:e_idx], train_dst_l[s_idx:e_idx]
-        ts_l_cut = train_ts_l[s_idx:e_idx]
-        label_l_cut = train_label_l[s_idx:e_idx]
-        size = len(src_l_cut)
-        # Negative Sampling, src_l_fake no use
-        src_l_fake, dst_l_fake = train_rand_sampler.sample(size)
+  # Training use only training graph
+  tgan.ngh_finder = train_ngh_finder
+  acc, ap, f1, auc, m_loss = [], [], [], [], []
+  np.random.shuffle(idx_list)     # no use
+  logger.info('start {} epoch'.format(epoch))
+  """ Batch Loop """
+  for k in range(num_batch):
+    # percent = 100 * k / num_batch
+    # if k % int(0.2 * num_batch) == 0:
+    #     logger.info('progress: {0:10.4f}'.format(percent))
+    s_idx = k * BATCH_SIZE
+    e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
+    src_l_cut, dst_l_cut = train_src_l[s_idx:e_idx], train_dst_l[s_idx:e_idx]
+    ts_l_cut = train_ts_l[s_idx:e_idx]
+    label_l_cut = train_label_l[s_idx:e_idx]
+    size = len(src_l_cut)
+    # Negative Sampling, src_l_fake no use
+    src_l_fake, dst_l_fake = train_rand_sampler.sample(size)
 
-        with torch.no_grad():
-            pos_label = torch.ones(size, dtype=torch.float, device=device)
-            neg_label = torch.zeros(size, dtype=torch.float, device=device)
+    with torch.no_grad():
+      pos_label = torch.ones(size, dtype=torch.float, device=device)
+      neg_label = torch.zeros(size, dtype=torch.float, device=device)
 
-        optimizer.zero_grad()
-        tgan = tgan.train()
+    optimizer.zero_grad()
+    tgan = tgan.train()
 
-        pos_prob, neg_prob = tgan.contrast(src_l_cut, dst_l_cut, dst_l_fake,
-                                           ts_l_cut, NUM_NEIGHBORS)
-        loss = criterion(pos_prob, pos_label)
-        loss += criterion(neg_prob, neg_label)
+    pos_prob, neg_prob = tgan.contrast(src_l_cut, dst_l_cut, dst_l_fake,
+                                        ts_l_cut, NUM_NEIGHBORS)
+    loss = criterion(pos_prob, pos_label)
+    loss += criterion(neg_prob, neg_label)
 
-        loss.backward()
-        optimizer.step()
-        # get training results
-        with torch.no_grad():
-            pred_score = np.concatenate([pos_prob.cpu().detach().numpy(),
-                                         neg_prob.cpu().detach().numpy()])
-            pred_label = pred_score > 0.5
-            true_label = np.concatenate([np.ones(size), np.zeros(size)])
-            acc.append((pred_label == true_label).mean())
-            ap.append(average_precision_score(true_label, pred_score))
-            # f1.append(f1_score(true_label, pred_label))
-            m_loss.append(loss.item())
-            auc.append(roc_auc_score(true_label, pred_score))
-    """ Batch Loop End """
+    loss.backward()
+    optimizer.step()
+    # get training results
+    with torch.no_grad():
+      pred_score = np.concatenate([pos_prob.cpu().detach().numpy(),
+                                    neg_prob.cpu().detach().numpy()])
+      pred_label = pred_score > 0.5
+      true_label = np.concatenate([np.ones(size), np.zeros(size)])
+      acc.append((pred_label == true_label).mean())
+      ap.append(average_precision_score(true_label, pred_score))
+      # f1.append(f1_score(true_label, pred_label))
+      m_loss.append(loss.item())
+      auc.append(roc_auc_score(true_label, pred_score))
+  """ Batch Loop End """
 
-    # validation phase use all information
-    tgan = tgan.eval()
-    tgan.ngh_finder = full_ngh_finder
-    val_acc, val_ap, val_f1, val_auc = \
-        eval_one_epoch('val for old nodes', tgan, val_rand_sampler,
-                       val_src_l, val_dst_l, val_ts_l, val_label_l)
+  # validation phase use all information
+  tgan = tgan.eval()
+  tgan.ngh_finder = full_ngh_finder
+  val_acc, val_ap, val_f1, val_auc = \
+      eval_one_epoch('val for old nodes', tgan, val_rand_sampler,
+                      val_src_l, val_dst_l, val_ts_l, val_label_l)
 
-    nn_val_acc, nn_val_ap, nn_val_f1, nn_val_auc = \
-        eval_one_epoch('val for new nodes', tgan, val_rand_sampler,
-                       nn_val_src_l, nn_val_dst_l, nn_val_ts_l, nn_val_label_l)
+  nn_val_acc, nn_val_ap, nn_val_f1, nn_val_auc = \
+      eval_one_epoch('val for new nodes', tgan, val_rand_sampler,
+                      nn_val_src_l, nn_val_dst_l, nn_val_ts_l, nn_val_label_l)
 
-    logger.info('epoch: {}:'.format(epoch))
-    logger.info('Epoch mean loss: {}'.format(np.mean(m_loss)))
-    logger.info('train acc: {}, val acc: {}, new node val acc: {}'
-                .format(np.mean(acc), val_acc, nn_val_acc))
-    logger.info('train auc: {}, val auc: {}, new node val auc: {}'
-                .format(np.mean(auc), val_auc, nn_val_auc))
-    logger.info('train ap: {}, val ap: {}, new node val ap: {}'
-                .format(np.mean(ap), val_ap, nn_val_ap))
-    # logger.info('train f1: {}, val f1: {}, new node val f1: {}'.format(np.mean(f1), val_f1, nn_val_f1))
+  logger.info('epoch: {}:'.format(epoch))
+  logger.info('Epoch mean loss: {}'.format(np.mean(m_loss)))
+  logger.info('train acc: {}, val acc: {}, new node val acc: {}'
+              .format(np.mean(acc), val_acc, nn_val_acc))
+  logger.info('train auc: {}, val auc: {}, new node val auc: {}'
+              .format(np.mean(auc), val_auc, nn_val_auc))
+  logger.info('train ap: {}, val ap: {}, new node val ap: {}'
+              .format(np.mean(ap), val_ap, nn_val_ap))
+  # logger.info('train f1: {}, val f1: {}, new node val f1: {}'.format(np.mean(f1), val_f1, nn_val_f1))
 
-    if early_stopper.early_stop_check(val_ap):
-        logger.info('No improvement over {} epochs, stop training'
-                    .format(early_stopper.max_round))
-        logger.info(f'Loading the best model at epoch {early_stopper.best_epoch}')
-        best_model_path = get_checkpoint_path(early_stopper.best_epoch)
-        tgan.load_state_dict(torch.load(best_model_path))
-        logger.info(f'Loaded the best model at epoch {early_stopper.best_epoch} for inference')
-        tgan.eval()
-        break
-    else:
-        # 每个epoch都保存模型
-        torch.save(tgan.state_dict(), get_checkpoint_path(epoch))
+  if early_stopper.early_stop_check(val_ap):
+    logger.info('No improvement over {} epochs, stop training'
+                .format(early_stopper.max_round))
+    logger.info(f'Loading the best model at epoch {early_stopper.best_epoch}')
+    best_model_path = get_checkpoint_path(early_stopper.best_epoch)
+    tgan.load_state_dict(torch.load(best_model_path))
+    logger.info(f'Loaded the best model at epoch {early_stopper.best_epoch} for inference')
+    tgan.eval()
+    break
+  else:
+    # 每个epoch都保存模型
+    torch.save(tgan.state_dict(), get_checkpoint_path(epoch))
 
 """ Epoch Loop End """
 

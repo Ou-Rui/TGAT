@@ -1,4 +1,9 @@
-"""Unified interface to all dynamic graph model experiments"""
+"""
+Unified interface to all dynamic graph model experiments
+
+python -u learn_node_c.py -d wikipedia --bs 100 --uniform --prefix 240227
+
+"""
 import math
 import logging
 import time
@@ -17,20 +22,20 @@ from graph import NeighborFinder
 
 
 class LR(torch.nn.Module):
-    def __init__(self, dim, drop=0.3):
-        super().__init__()
-        self.fc_1 = torch.nn.Linear(dim, 80)
-        self.fc_2 = torch.nn.Linear(80, 10)
-        self.fc_3 = torch.nn.Linear(10, 1)
-        self.act = torch.nn.ReLU()
-        self.dropout = torch.nn.Dropout(p=drop, inplace=True)
+  def __init__(self, dim, drop=0.3):
+    super().__init__()
+    self.fc_1 = torch.nn.Linear(dim, 80)
+    self.fc_2 = torch.nn.Linear(80, 10)
+    self.fc_3 = torch.nn.Linear(10, 1)
+    self.act = torch.nn.ReLU()
+    self.dropout = torch.nn.Dropout(p=drop, inplace=True)
 
-    def forward(self, x):
-        x = self.act(self.fc_1(x))
-        x = self.dropout(x)
-        x = self.act(self.fc_2(x))
-        x = self.dropout(x)
-        return self.fc_3(x).squeeze(dim=1)
+  def forward(self, x):
+    x = self.act(self.fc_1(x))
+    x = self.dropout(x)
+    x = self.act(self.fc_2(x))
+    x = self.dropout(x)
+    return self.fc_3(x).squeeze(dim=1)
 
 
 random.seed(222)
@@ -42,7 +47,7 @@ parser = argparse.ArgumentParser('Interface for TGAT experiments on node classif
 parser.add_argument('-d', '--data', type=str, help='data sources to use, try wikipedia or reddit', default='wikipedia')
 parser.add_argument('--bs', type=int, default=30, help='batch_size')
 parser.add_argument('--prefix', type=str, default='')
-parser.add_argument('--n_degree', type=int, default=50, help='number of neighbors to sample')
+parser.add_argument('--n_degree', type=int, default=20, help='number of neighbors to sample')
 parser.add_argument('--n_neg', type=int, default=1)
 parser.add_argument('--n_head', type=int, default=2)
 parser.add_argument('--n_epoch', type=int, default=15, help='number of epochs')
@@ -233,65 +238,65 @@ lr_criterion_eval = torch.nn.BCELoss()
 
 
 def eval_epoch(src_l, dst_l, ts_l, label_l, batch_size, lr_model, tgan, num_layer=NODE_LAYER):
-    pred_prob = np.zeros(len(src_l))
-    loss = 0
-    num_instance = len(src_l)
-    num_batch = math.ceil(num_instance / batch_size)
-    emb_l = []
-    with torch.no_grad():
-        lr_model.eval()
-        tgan.eval()
-        for k in range(num_batch):
-            s_idx = k * batch_size
-            e_idx = min(num_instance - 1, s_idx + batch_size)
-            src_l_cut = src_l[s_idx:e_idx]
-            dst_l_cut = dst_l[s_idx:e_idx]
-            ts_l_cut = ts_l[s_idx:e_idx]
-            label_l_cut = label_l[s_idx:e_idx]
-            size = len(src_l_cut)
-            ''' NC调用tem_conv计算节点表示 '''
-            src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, num_layer) # [b, 172]
-            src_label = torch.from_numpy(label_l_cut).float().to(device)
-            lr_prob = lr_model(src_embed).sigmoid()
-            loss += lr_criterion_eval(lr_prob, src_label).item()
-            pred_prob[s_idx:e_idx] = lr_prob.cpu().numpy()
-            
-            emb_l.extend(src_embed.cpu().numpy())
+  pred_prob = np.zeros(len(src_l))
+  loss = 0
+  num_instance = len(src_l)
+  num_batch = math.ceil(num_instance / batch_size)
+  emb_l = []
+  with torch.no_grad():
+    lr_model.eval()
+    tgan.eval()
+    for k in range(num_batch):
+      s_idx = k * batch_size
+      e_idx = min(num_instance, s_idx + batch_size)
+      src_l_cut = src_l[s_idx:e_idx]
+      dst_l_cut = dst_l[s_idx:e_idx]
+      ts_l_cut = ts_l[s_idx:e_idx]
+      label_l_cut = label_l[s_idx:e_idx]
+      size = len(src_l_cut)
+      ''' NC调用tem_conv计算节点表示 '''
+      src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, num_layer) # [b, 172]
+      src_label = torch.from_numpy(label_l_cut).float().to(device)
+      lr_prob = lr_model(src_embed).sigmoid()
+      loss += lr_criterion_eval(lr_prob, src_label).item()
+      pred_prob[s_idx:e_idx] = lr_prob.cpu().numpy()
+      
+      emb_l.extend(src_embed.cpu().numpy())
 
-    auc_roc = roc_auc_score(label_l, pred_prob)
-    return auc_roc, loss / num_instance, emb_l, pred_prob
+  auc_roc = roc_auc_score(label_l, pred_prob)
+  return auc_roc, loss / num_instance, emb_l, pred_prob
 
 
 for epoch in tqdm(range(args.n_epoch)):
-    lr_pred_prob = np.zeros(len(train_src_l))
-    # np.random.shuffle(idx_list)         # why shuffle? no use
-    tgan = tgan.eval()              # TGAT param fixed
-    lr_model = lr_model.train()     # Train Decoder only
-    # batch loop
-    for k in range(num_batch):
-        s_idx = k * BATCH_SIZE
-        e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
-        src_l_cut = train_src_l[s_idx:e_idx]
-        dst_l_cut = train_dst_l[s_idx:e_idx]
-        ts_l_cut = train_ts_l[s_idx:e_idx]
-        label_l_cut = train_label_l[s_idx:e_idx]
+  lr_pred_prob = np.zeros(len(train_src_l))
+  # np.random.shuffle(idx_list)         # why shuffle? no use
+  tgan = tgan.eval()              # TGAT param fixed
+  lr_model = lr_model.train()     # Train Decoder only
+  # batch loop
+  for k in range(num_batch):
+    s_idx = k * BATCH_SIZE
+    e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
+    src_l_cut = train_src_l[s_idx:e_idx]
+    dst_l_cut = train_dst_l[s_idx:e_idx]
+    ts_l_cut = train_ts_l[s_idx:e_idx]
+    label_l_cut = train_label_l[s_idx:e_idx]
 
-        lr_optimizer.zero_grad()
-        with torch.no_grad():
-            src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, NODE_LAYER)
+    lr_optimizer.zero_grad()
+    with torch.no_grad():
+      src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, NODE_LAYER)
 
-        src_label = torch.from_numpy(label_l_cut).float().to(device)
-        lr_prob = lr_model(src_embed).sigmoid()
-        lr_loss = lr_criterion(lr_prob, src_label)
-        lr_loss.backward()
-        lr_optimizer.step()
+    src_label = torch.from_numpy(label_l_cut).float().to(device)
+    lr_prob = lr_model(src_embed).sigmoid()
+    lr_loss = lr_criterion(lr_prob, src_label)
+    lr_loss.backward()
+    lr_optimizer.step()
 
-    train_auc, train_loss, _, _ = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
-                                       BATCH_SIZE, lr_model, tgan)
-    test_auc, test_loss, _, _ = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
-                                     BATCH_SIZE, lr_model, tgan)
-    # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
-    logger.info(f'train auc: {train_auc}, test auc: {test_auc}')
+  train_auc, train_loss, _, _ = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
+                                      BATCH_SIZE, lr_model, tgan)
+  test_auc, test_loss, _, _ = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
+                                    BATCH_SIZE, lr_model, tgan)
+  # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
+  logger.info(f'train auc: {train_auc}, test auc: {test_auc}')
 
 emb_l, prob_l = [], []
 train_auc, train_loss, train_emb, train_prob = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
@@ -309,7 +314,9 @@ prob_l.extend(test_prob)
 # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
 logger.info(f'test auc: {test_auc}')
 emb_l = np.array(emb_l).reshape([-1, 172])
-prob_l = np.array(prob_l).reshape([-1, 2])
+prob_l = np.array(prob_l).reshape([-1, 1])
+neg_prob_l = 1 - prob_l
+prob_l = np.concatenate((neg_prob_l, prob_l), axis=1)
 assert prob_l.shape[0] == emb_l.shape[0]
-np.save(f"./saved_embs/{args.prefix}_embs.npy", emb_l)
-np.save(f"./saved_embs/{args.prefix}_probs.npy", prob_l)
+np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_embs.npy", emb_l)
+np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_probs.npy", prob_l)
