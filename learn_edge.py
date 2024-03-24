@@ -1,8 +1,8 @@
 """
 Unified interface to all dynamic graph model experiments
 
-python -u learn_edge.py -d wikipedia --bs 200 --uniform  --n_degree 20 --agg_method attn --attn_mode prod --gpu 0 --n_head 2 --prefix hello_world
-python -u learn_edge.py -d txn_filter --bs 200 --uniform  --n_degree 20 --agg_method attn --attn_mode prod --gpu 0 --n_head 2 --prefix 240321
+python -u learn_edge.py -d wikipedia --uniform --prefix hello_world
+python -u learn_edge.py -d txn_filter --uniform --prefix 240321
 """
 import math
 import logging
@@ -107,7 +107,7 @@ def eval_one_epoch(hint, tgan, sampler, src, dst, ts, label):
       # if k % int(0.2 * num_test_batch) == 0:
       #     logger.info('{0} progress: {1:10.4f}'.format(hint, percent))
       s_idx = k * TEST_BATCH_SIZE
-      e_idx = min(num_test_instance - 1, s_idx + TEST_BATCH_SIZE)
+      e_idx = min(num_test_instance, s_idx + TEST_BATCH_SIZE)
       src_l_cut = src[s_idx:e_idx]
       dst_l_cut = dst[s_idx:e_idx]
       ts_l_cut = ts[s_idx:e_idx]
@@ -136,6 +136,9 @@ n_feat = np.load('./processed/ml_{}_node.npy'.format(DATA))  # n_feat初始值�
 
 # 按照时间划分数据集，0.7 : 0.15 : 0.15
 val_time, test_time = list(np.quantile(g_df.ts, [0.70, 0.85]))
+
+if args.data == 'txn_filter':
+  val_time, test_time = list(np.quantile(g_df.ts, [0.34, 0.66]))
 
 # 以下5个数据结构：ndarray: [E]。排序：ts_l递增
 src_l = g_df.u.values  # 节点编号从1开始
@@ -269,7 +272,7 @@ for epoch in range(NUM_EPOCH):
     # if k % int(0.2 * num_batch) == 0:
     #     logger.info('progress: {0:10.4f}'.format(percent))
     s_idx = k * BATCH_SIZE
-    e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
+    e_idx = min(num_instance, s_idx + BATCH_SIZE)
     src_l_cut, dst_l_cut = train_src_l[s_idx:e_idx], train_dst_l[s_idx:e_idx]
     ts_l_cut = train_ts_l[s_idx:e_idx]
     label_l_cut = train_label_l[s_idx:e_idx]

@@ -1,7 +1,8 @@
 """
 Unified interface to all dynamic graph model experiments
 
-python -u learn_node_c.py -d wikipedia --bs 100 --uniform --prefix 240227
+python -u learn_node_c.py -d wikipedia --bs 100 --uniform --prefix 240321
+python -u learn_node_c.py -d txn_filter --bs 100 --uniform --prefix 240323
 
 """
 import math
@@ -34,8 +35,9 @@ class LR(torch.nn.Module):
     x = self.act(self.fc_1(x))
     x = self.dropout(x)
     x = self.act(self.fc_2(x))
+    hidden_emb = x
     x = self.dropout(x)
-    return self.fc_3(x).squeeze(dim=1)
+    return self.fc_3(x).squeeze(dim=1), hidden_emb
 
 
 random.seed(222)
@@ -117,6 +119,9 @@ logger.info(f'e_feat.shape={e_feat.shape}, n_feat.shape={n_feat.shape}')
 
 # 按照时间划分数据集，0.7 : 0.15 : 0.15
 val_time, test_time = list(np.quantile(g_df.ts, [0.70, 0.85]))
+
+if args.data == 'txn_filter':
+  val_time, test_time = list(np.quantile(g_df.ts, [0.34, 0.66]))
 
 # 以下5个数据结构：ndarray: [E]。排序：ts_l递增
 src_l = g_df.u.values       # 节点编号从1开始
@@ -242,7 +247,7 @@ def eval_epoch(src_l, dst_l, ts_l, label_l, batch_size, lr_model, tgan, num_laye
   loss = 0
   num_instance = len(src_l)
   num_batch = math.ceil(num_instance / batch_size)
-  emb_l = []
+  emb_l, hidden_emb_l = [], []
   with torch.no_grad():
     lr_model.eval()
     tgan.eval()
@@ -257,14 +262,16 @@ def eval_epoch(src_l, dst_l, ts_l, label_l, batch_size, lr_model, tgan, num_laye
       ''' NC调用tem_conv计算节点表示 '''
       src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, num_layer) # [b, 172]
       src_label = torch.from_numpy(label_l_cut).float().to(device)
-      lr_prob = lr_model(src_embed).sigmoid()
+      lr_prob, hidden_emb = lr_model(src_embed)
+      lr_prob = lr_prob.sigmoid()
       loss += lr_criterion_eval(lr_prob, src_label).item()
       pred_prob[s_idx:e_idx] = lr_prob.cpu().numpy()
       
       emb_l.extend(src_embed.cpu().numpy())
+      hidden_emb_l.extend(hidden_emb.cpu().numpy())
 
   auc_roc = roc_auc_score(label_l, pred_prob)
-  return auc_roc, loss / num_instance, emb_l, pred_prob
+  return auc_roc, loss / num_instance, emb_l, pred_prob, hidden_emb_l
 
 
 for epoch in tqdm(range(args.n_epoch)):
@@ -275,7 +282,7 @@ for epoch in tqdm(range(args.n_epoch)):
   # batch loop
   for k in range(num_batch):
     s_idx = k * BATCH_SIZE
-    e_idx = min(num_instance - 1, s_idx + BATCH_SIZE)
+    e_idx = min(num_instance, s_idx + BATCH_SIZE)
     src_l_cut = train_src_l[s_idx:e_idx]
     dst_l_cut = train_dst_l[s_idx:e_idx]
     ts_l_cut = train_ts_l[s_idx:e_idx]
@@ -286,37 +293,45 @@ for epoch in tqdm(range(args.n_epoch)):
       src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, NODE_LAYER)
 
     src_label = torch.from_numpy(label_l_cut).float().to(device)
-    lr_prob = lr_model(src_embed).sigmoid()
+    lr_prob, hidden_emb = lr_model(src_embed)
+    lr_prob = lr_prob.sigmoid()
     lr_loss = lr_criterion(lr_prob, src_label)
     lr_loss.backward()
     lr_optimizer.step()
 
-  train_auc, train_loss, _, _ = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
+  train_auc, train_loss, _, _, _ = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
                                       BATCH_SIZE, lr_model, tgan)
-  test_auc, test_loss, _, _ = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
+  test_auc, test_loss, _, _, _ = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
                                     BATCH_SIZE, lr_model, tgan)
   # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
   logger.info(f'train auc: {train_auc}, test auc: {test_auc}')
 
-emb_l, prob_l = [], []
-train_auc, train_loss, train_emb, train_prob = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
+emb_l, hidden_emb_l, prob_l = [], [], []
+train_auc, train_loss, train_emb, train_prob, train_hidden_emb = eval_epoch(train_src_l, train_dst_l, train_ts_l, train_label_l,
                                            BATCH_SIZE, lr_model, tgan)
-val_auc, val_loss, val_emb, val_prob = eval_epoch(val_src_l, val_dst_l, val_ts_l, val_label_l,
+val_auc, val_loss, val_emb, val_prob, val_hidden_emb = eval_epoch(val_src_l, val_dst_l, val_ts_l, val_label_l,
                                            BATCH_SIZE, lr_model, tgan)
-test_auc, test_loss, test_emb, test_prob = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
+test_auc, test_loss, test_emb, test_prob, test_hidden_emb = eval_epoch(test_src_l, test_dst_l, test_ts_l, test_label_l,
                                            BATCH_SIZE, lr_model, tgan)
 emb_l.extend(train_emb)
 emb_l.extend(val_emb)
 emb_l.extend(test_emb)
+hidden_emb_l.extend(train_hidden_emb)
+hidden_emb_l.extend(val_hidden_emb)
+hidden_emb_l.extend(test_hidden_emb)
 prob_l.extend(train_prob)
 prob_l.extend(val_prob)
 prob_l.extend(test_prob)
 # torch.save(lr_model.state_dict(), './saved_models/edge_{}_wiki_node_class.pth'.format(DATA))
 logger.info(f'test auc: {test_auc}')
-emb_l = np.array(emb_l).reshape([-1, 172])
+emb_dim = 128 if args.data == 'txn_filter' else 172
+emb_l = np.array(emb_l).reshape([-1, emb_dim])
+hidden_emb_l = np.array(hidden_emb_l)
+assert hidden_emb_l.shape[0] == emb_l.shape[0]
 prob_l = np.array(prob_l).reshape([-1, 1])
 neg_prob_l = 1 - prob_l
 prob_l = np.concatenate((neg_prob_l, prob_l), axis=1)
 assert prob_l.shape[0] == emb_l.shape[0]
 np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_embs.npy", emb_l)
+np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_hidden2_embs.npy", hidden_emb_l)
 np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_probs.npy", prob_l)

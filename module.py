@@ -322,9 +322,16 @@ class AttnModel(torch.nn.Module):
       super(AttnModel, self).__init__()
 
       self.feat_dim = feat_dim
+      self.edge_dim = edge_dim
       self.time_dim = time_dim
+      assert time_dim == feat_dim
+      
+      self.linear_to_model_dim = None
+      if edge_dim != feat_dim:
+        self.linear_to_model_dim = nn.Linear(edge_dim, feat_dim)
 
-      self.edge_in_dim = (feat_dim + edge_dim + time_dim)
+
+      self.edge_in_dim = feat_dim * 3
       self.model_dim = self.edge_in_dim
       # self.edge_fc = torch.nn.Linear(self.edge_in_dim, self.feat_dim, bias=False)
 
@@ -374,6 +381,9 @@ class AttnModel(torch.nn.Module):
       src_ext = torch.unsqueeze(src, dim=1)  # src [B, 1, D]
       src_e_ph = torch.zeros_like(src_ext)
       q = torch.cat([src_ext, src_e_ph, src_t], dim=2)  # [B, 1, D + De + Dt] -> [B, 1, D]
+      
+      if self.linear_to_model_dim is not None:
+        seq_e = self.linear_to_model_dim(seq_e)
       k = torch.cat([seq, seq_e, seq_t], dim=2)  # [B, 1, D + De + Dt] -> [B, 1, D]
 
       mask = torch.unsqueeze(mask, dim=2)  # mask [B, N, 1]
@@ -381,7 +391,7 @@ class AttnModel(torch.nn.Module):
 
       # target-attention
       output, attn = self.multi_head_target(q=q, k=k, v=k, mask=mask)  # output: [B, 1, D + Dt], attn: [B, 1, N]
-      output = output.squeeze()
+      output = torch.reshape(output, [output.shape[0], -1])
       attn = attn.squeeze()
 
       output = self.merger(output, src)
@@ -408,7 +418,7 @@ class TGAN(torch.nn.Module):
 
     self.feat_dim = self.n_feat_th.shape[1]
     self.n_feat_dim = self.feat_dim
-    self.e_feat_dim = self.feat_dim
+    self.e_feat_dim = self.e_feat_th.shape[1]
     self.model_dim = self.feat_dim
 
     self.use_time = use_time
@@ -418,7 +428,7 @@ class TGAN(torch.nn.Module):
     if agg_method == 'attn':
       self.logger.info('Aggregation uses attention model')
       self.attn_model_list = torch.nn.ModuleList(
-          [AttnModel(self.feat_dim, self.feat_dim, self.feat_dim,
+          [AttnModel(self.feat_dim, self.e_feat_dim, self.feat_dim,
                       attn_mode=attn_mode, n_head=n_head, drop_out=drop_out)
             for _ in range(num_layers)])
     elif agg_method == 'lstm':
@@ -463,11 +473,11 @@ class TGAN(torch.nn.Module):
     链接预测时，输入正负边，输出模型预测边存在的概率值
     --------------------------------
     Param:
-        src_idx_l: 源节点
-        target_idx_l: 目标节点
-        background_idx_l: 负采样的假目标节点
-        cut_time_l: 对应边的ts
-        num_neighbors: 采样邻居数量
+      src_idx_l: 源节点
+      target_idx_l: 目标节点
+      background_idx_l: 负采样的假目标节点
+      cut_time_l: 对应边的ts
+      num_neighbors: 采样邻居数量
     """
     src_embed = self.tem_conv(src_idx_l, cut_time_l, self.num_layers, num_neighbors)
     target_embed = self.tem_conv(target_idx_l, cut_time_l, self.num_layers, num_neighbors)
