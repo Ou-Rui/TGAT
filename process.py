@@ -57,27 +57,27 @@ def reindex(df):
   return new_df
 
 
-# def run(data_name):
-#   # PATH = './processed/{}.csv'.format(data_name)
-#   PATH = '../Datasets/{}.csv'.format(data_name)
-#   OUT_DF = './processed/ml_{}.csv'.format(data_name)
-#   OUT_FEAT = './processed/ml_{}.npy'.format(data_name)
-#   OUT_NODE_FEAT = './processed/ml_{}_node.npy'.format(data_name)
+def run(data_name):
+  # PATH = './processed/{}.csv'.format(data_name)
+  PATH = '../Datasets/{}.csv'.format(data_name)
+  OUT_DF = './processed/ml_{}.csv'.format(data_name)
+  OUT_FEAT = './processed/ml_{}.npy'.format(data_name)
+  OUT_NODE_FEAT = './processed/ml_{}_node.npy'.format(data_name)
 
-#   df, feat = preprocess(PATH)
-#   new_df = reindex(df)
+  df, feat = preprocess(PATH)
+  new_df = reindex(df)
 
-#   print(feat.shape)
-#   empty = np.zeros(feat.shape[1])[np.newaxis, :]
-#   feat = np.vstack([empty, feat])
+  print(feat.shape)
+  empty = np.zeros(feat.shape[1])[np.newaxis, :]
+  feat = np.vstack([empty, feat])
 
-#   max_idx = max(new_df.u.max(), new_df.i.max())
-#   rand_feat = np.zeros((max_idx + 1, feat.shape[1]))
+  max_idx = max(new_df.u.max(), new_df.i.max())
+  rand_feat = np.zeros((max_idx + 1, feat.shape[1]))
 
-#   print(feat.shape)
-#   new_df.to_csv(OUT_DF)
-#   np.save(OUT_FEAT, feat)
-#   np.save(OUT_NODE_FEAT, rand_feat)
+  print(feat.shape)
+  new_df.to_csv(OUT_DF)
+  np.save(OUT_FEAT, feat)
+  np.save(OUT_NODE_FEAT, rand_feat)
 
 
 
@@ -85,11 +85,13 @@ def reindex(df):
 
 # run('reddit')
 
+run('mooc')
+
 ''' txn_filter'''
-def run():
-  n_feat = np.load("/remote-home/ourui/TGAT/processed/ml_txn_filter_node.npy")
-  # e_feat = np.load("/remote-home/ourui/TGAT/processed/ml_txn_filter.npy")
-  new_n_feat = np.zeros((n_feat.shape[0], 128))
-  np.save("/remote-home/ourui/TGAT/processed/ml_txn_filter_node.npy", new_n_feat)
+# def run():
+#   n_feat = np.load("/remote-home/ourui/TGAT/processed/ml_txn_filter_node.npy")
+#   # e_feat = np.load("/remote-home/ourui/TGAT/processed/ml_txn_filter.npy")
+#   new_n_feat = np.zeros((n_feat.shape[0], 128))
+#   np.save("/remote-home/ourui/TGAT/processed/ml_txn_filter_node.npy", new_n_feat)
   
-run()
+# run()

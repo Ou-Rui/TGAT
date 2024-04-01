@@ -1,7 +1,9 @@
 """
 Unified interface to all dynamic graph model experiments
 
-python -u learn_edge.py -d wikipedia --uniform --prefix hello_world
+python -u learn_edge.py -d wikipedia --uniform --prefix 240327
+python -u learn_edge.py -d reddit --uniform --prefix 240327
+python -u learn_edge.py -d mooc --uniform --prefix 240327
 python -u learn_edge.py -d txn_filter --uniform --prefix 240321
 """
 import math
@@ -18,7 +20,7 @@ import numpy as np
 
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import f1_score
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve, recall_score
 
 from module import TGAN
 from graph import NeighborFinder
@@ -134,11 +136,14 @@ g_df = pd.read_csv('./processed/ml_{}.csv'.format(DATA))
 e_feat = np.load('./processed/ml_{}.npy'.format(DATA))
 n_feat = np.load('./processed/ml_{}_node.npy'.format(DATA))  # n_feat初始值全0
 
-# 按照时间划分数据集，0.7 : 0.15 : 0.15
-val_time, test_time = list(np.quantile(g_df.ts, [0.70, 0.85]))
 
 if args.data == 'txn_filter':
   val_time, test_time = list(np.quantile(g_df.ts, [0.34, 0.66]))
+elif args.data == 'wikipedia' or args.data == 'reddit' or args.data == 'mooc':
+  # 按照时间划分数据集，0.7 : 0.15 : 0.15
+  val_time, test_time = list(np.quantile(g_df.ts, [0.70, 0.85]))
+else:
+  raise ValueError("invalid dataset")
 
 # 以下5个数据结构：ndarray: [E]。排序：ts_l递增
 src_l = g_df.u.values  # 节点编号从1开始
