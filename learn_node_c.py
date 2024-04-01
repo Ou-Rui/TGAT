@@ -140,43 +140,6 @@ max_idx = max(src_l.max(), dst_l.max())     # number of nodes
 
 total_node_set = set(np.unique(np.hstack([g_df.u.values, g_df.i.values])))
 
-''' 前85%: train + val (8:2的比例, 随机分); 后15%: test'''
-# valid_train_flag = (ts_l <= test_time)
-# valid_val_flag = (ts_l <= test_time)
-# # 在前85%时间的边中继续划分：80% train，20% val（随机划分）
-# assignment = np.random.randint(0, 10, len(valid_train_flag))
-# valid_train_flag *= (assignment >= 2)
-# valid_val_flag *= (assignment < 2)
-# valid_test_flag = ts_l > test_time
-
-# if args.tune:
-#     # 调参数模式，用val选最佳参数
-#     train_src_l = src_l[valid_train_flag]
-#     train_dst_l = dst_l[valid_train_flag]
-#     train_ts_l = ts_l[valid_train_flag]
-#     train_e_idx_l = e_idx_l[valid_train_flag]
-#     train_label_l = label_l[valid_train_flag]
-#     # use the validation as test dataset
-#     test_src_l = src_l[valid_val_flag]
-#     test_dst_l = dst_l[valid_val_flag]
-#     test_ts_l = ts_l[valid_val_flag]
-#     test_e_idx_l = e_idx_l[valid_val_flag]
-#     test_label_l = label_l[valid_val_flag]
-# else:
-#     logger.info('Training use all train data')
-#     valid_train_flag = (ts_l <= test_time)
-#     train_src_l = src_l[valid_train_flag]
-#     train_dst_l = dst_l[valid_train_flag]
-#     train_ts_l = ts_l[valid_train_flag]
-#     train_e_idx_l = e_idx_l[valid_train_flag]
-#     train_label_l = label_l[valid_train_flag]
-#     # use the true test dataset
-#     test_src_l = src_l[valid_test_flag]
-#     test_dst_l = dst_l[valid_test_flag]
-#     test_ts_l = ts_l[valid_test_flag]
-#     test_e_idx_l = e_idx_l[valid_test_flag]
-#     test_label_l = label_l[valid_test_flag]
-
 ''' 正常划分 '''
 valid_train_flag = (ts_l <= val_time)
 valid_val_flag = (ts_l > val_time) * (ts_l <= test_time) 
