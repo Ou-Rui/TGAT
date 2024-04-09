@@ -1,10 +1,10 @@
 """
 Unified interface to all dynamic graph model experiments
 
-python -u learn_node_c.py -d wikipedia --bs 100 --uniform --prefix 240327
-python -u learn_node_c.py -d reddit --bs 100 --uniform --prefix 240327
-python -u learn_node_c.py -d mooc --bs 100 --uniform --prefix 240327
-python -u learn_node_c.py -d txn_filter --bs 100 --uniform --prefix 240327
+python -u learn_node_c.py -d wikipedia --uniform --prefix e2e
+python -u learn_node_c.py -d reddit --uniform --prefix e2e
+python -u learn_node_c.py -d mooc --uniform --prefix e2e
+python -u learn_node_c.py -d txn_filter --uniform --prefix e2e
 
 """
 import math
@@ -106,7 +106,7 @@ TIME_DIM = args.time_dim
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-log_name = f'{get_ftime()}-{args.data}-{args.mask}'
+log_name = f'{get_ftime()}-{args.prefix}-{args.data}-{args.mask}'
 fh = logging.FileHandler(f'log/{log_name}.log')
 fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
@@ -270,10 +270,10 @@ def save_embs(epoch, emb_tuple, prob_tuple, h1_tuple, h2_tuple):
   prob_l = np.array(prob_l)
   h1_l = np.array(h1_l)
   h2_l = np.array(h2_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_embs.npy", emb_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_probs.npy", prob_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_h1.npy", h1_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_h2.npy", h2_l)
+  np.save(f"./saved_embs/e2e_TGAT_{args.prefix}_{args.data}_epoch{epoch}_embs.npy", emb_l)
+  np.save(f"./saved_embs/e2e_TGAT_{args.prefix}_{args.data}_epoch{epoch}_probs.npy", prob_l)
+  np.save(f"./saved_embs/e2e_TGAT_{args.prefix}_{args.data}_epoch{epoch}_h1.npy", h1_l)
+  np.save(f"./saved_embs/e2e_TGAT_{args.prefix}_{args.data}_epoch{epoch}_h2.npy", h2_l)
 
 
 ''' Train Procedure'''
@@ -310,12 +310,12 @@ for i_run in range(args.n_run):
   logger.debug(f'num of batches per epoch: {num_batch}')
   # idx_list = np.arange(num_instance)
 
-  logger.info('loading saved TGAN model')
-  model_path = f'./saved_models/{args.prefix}-{args.agg_method}-{args.attn_mode}-{DATA}.pth'
-  tgan.load_state_dict(torch.load(model_path))
-  tgan.eval()
-  logger.info('TGAN model loaded')
-  logger.info('Start training node classification task')
+  # logger.info('loading saved TGAN model')
+  # model_path = f'./saved_models/{args.prefix}-{args.agg_method}-{args.attn_mode}-{DATA}.pth'
+  # tgan.load_state_dict(torch.load(model_path))
+  # tgan.eval()
+  # logger.info('TGAN model loaded')
+  # logger.info('Start training node classification task')
 
   """ NC Decoder: 3-layer MLP """
   lr_model = LR(n_feat.shape[1])
@@ -335,7 +335,7 @@ for i_run in range(args.n_run):
   for epoch in tqdm(range(args.n_epoch)):
     lr_pred_prob = np.zeros(len(train_src_l))
     # np.random.shuffle(idx_list)         # why shuffle? no use
-    tgan = tgan.eval()              # TGAT param fixed
+    tgan = tgan.train()             
     lr_model = lr_model.train()     # Train Decoder only
     # batch loop
     for k in range(num_batch):
@@ -347,8 +347,8 @@ for i_run in range(args.n_run):
       label_l_cut = mask_train_label_l[s_idx:e_idx]
 
       lr_optimizer.zero_grad()
-      with torch.no_grad():
-        src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, NODE_LAYER)
+      
+      src_embed = tgan.tem_conv(src_l_cut, ts_l_cut, NODE_LAYER)
 
       src_label = torch.from_numpy(label_l_cut).float().to(device)
       lr_prob, h1, h2 = lr_model(src_embed)
