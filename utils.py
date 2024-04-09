@@ -28,7 +28,7 @@ class EarlyStopMonitor(object):
     if not self.higher_better:
       curr_val *= -1
     if self.last_best is None:
-        self.last_best = curr_val
+      self.last_best = curr_val
     elif (curr_val - self.last_best) / np.abs(self.last_best) > self.tolerance:
       self.last_best = curr_val
       self.num_round = 0
