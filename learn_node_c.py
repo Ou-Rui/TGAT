@@ -1,10 +1,10 @@
 """
 Unified interface to all dynamic graph model experiments
 
-python -u learn_node_c.py -d wikipedia --bs 100 --uniform --prefix 240327
+python -u learn_node_c.py -d wikipedia --bs 100 --uniform --prefix 240323
 python -u learn_node_c.py -d reddit --bs 100 --uniform --prefix 240327
 python -u learn_node_c.py -d mooc --bs 100 --uniform --prefix 240327
-python -u learn_node_c.py -d txn_filter --bs 100 --uniform --prefix 240327
+python -u learn_node_c.py -d txn_filter --bs 100 --uniform --prefix 240323
 
 """
 import math
@@ -28,8 +28,8 @@ from utils import get_ftime
 class LR(torch.nn.Module):
   def __init__(self, dim, drop=0.3):
     super().__init__()
-    self.fc_1 = torch.nn.Linear(dim, 80)
-    self.fc_2 = torch.nn.Linear(80, 10)
+    self.fc_1 = torch.nn.Linear(dim, 512)    # 80
+    self.fc_2 = torch.nn.Linear(512, 10)     # 80, 10
     self.fc_3 = torch.nn.Linear(10, 1)
     self.act = torch.nn.ReLU()
     self.dropout = torch.nn.Dropout(p=drop, inplace=True)
@@ -102,11 +102,12 @@ NODE_LAYER = 1
 NODE_DIM = args.node_dim
 TIME_DIM = args.time_dim
 
+now_time = get_ftime()
 ### set up logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-log_name = f'{get_ftime()}-{args.data}-{args.mask}'
+log_name = f'{now_time}-{args.data}-{args.mask}'
 fh = logging.FileHandler(f'log/{log_name}.log')
 fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
@@ -222,7 +223,7 @@ def eval_epoch(src_l, dst_l, ts_l, label_l, batch_size, lr_model, tgan, num_laye
   metrics = (auc_roc, ap, f1, recall)
   return metrics, loss / num_instance, emb_l, pred_prob, h1_l, h2_l
 
-def save_embs(epoch, emb_tuple, prob_tuple, h1_tuple, h2_tuple):
+def save_embs(now_time, epoch, emb_tuple, prob_tuple, h1_tuple, h2_tuple):
   emb_l, prob_l, h1_l, h2_l = [], [], [], []
   for emb_mode, prob_mode, h1_mode, h2_mode in zip(emb_tuple, prob_tuple, h1_tuple, h2_tuple):
     emb_l.extend(emb_mode)
@@ -233,10 +234,10 @@ def save_embs(epoch, emb_tuple, prob_tuple, h1_tuple, h2_tuple):
   prob_l = np.array(prob_l)
   h1_l = np.array(h1_l)
   h2_l = np.array(h2_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_embs.npy", emb_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_probs.npy", prob_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_h1.npy", h1_l)
-  np.save(f"./saved_embs/TGAT_{args.prefix}_{args.data}_epoch{epoch}_h2.npy", h2_l)
+  np.save(f"./saved_embs/{now_time}-c-TGAT_{args.prefix}_{args.data}_epoch{epoch}_embs.npy", emb_l)
+  np.save(f"./saved_embs/{now_time}-c-TGAT_{args.prefix}_{args.data}_epoch{epoch}_probs.npy", prob_l)
+  np.save(f"./saved_embs/{now_time}--TGAT_{args.prefix}_{args.data}_epoch{epoch}_h1.npy", h1_l)
+  np.save(f"./saved_embs/{now_time}-c-TGAT_{args.prefix}_{args.data}_epoch{epoch}_h2.npy", h2_l)
 
 
 ''' Train Procedure'''
@@ -344,7 +345,7 @@ for i_run in range(args.n_run):
     logger.info(f'train_auc: {train_auc:.4f}, train_ap: {train_ap:.4f}, train_f1: {train_f1:.4f}, train_recall: {train_recall:.4f}')
     logger.info(f'val_auc: {val_auc:.4f}, val_ap: {val_ap:.4f}, val_f1: {val_f1:.4f}, val_recall: {val_recall:.4f}')
     logger.info(f'test_auc: {test_auc:.4f}, test_ap: {test_ap:.4f}, test_f1: {test_f1:.4f}, test_recall: {test_recall:.4f}')
-    save_embs(epoch, (train_emb_l, val_emb_l, test_emb_l), (train_prob_l, val_prob_l, test_prob_l),
+    save_embs(now_time, epoch, (train_emb_l, val_emb_l, test_emb_l), (train_prob_l, val_prob_l, test_prob_l),
               (train_h1_l, val_h1_l, test_h1_l), (train_h2_l, val_h2_l, test_h2_l))
     
     for i in range(len(METRICS)):
