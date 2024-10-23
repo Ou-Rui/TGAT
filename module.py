@@ -406,7 +406,6 @@ class TGAN(torch.nn.Module):
 
     self.num_layers = num_layers
     self.ngh_finder = ngh_finder
-    self.null_idx = null_idx    # no use
     self.logger = logging.getLogger(__name__)
     self.n_feat_th = torch.nn.Parameter(torch.from_numpy(n_feat.astype(np.float32)))
     self.e_feat_th = torch.nn.Parameter(torch.from_numpy(e_feat.astype(np.float32)))
