@@ -1,10 +1,10 @@
-log/*
-processed/*
-saved_checkpoints/*
-saved_models/*
-venv/*
-dgl_impl/processed_data/*
-.idea/*
+log/
+processed/
+saved_checkpoints/
+saved_models/
+venv/
+dgl_impl/processed_data/
+.idea/
 .vscode/
 *.pyc
 *.npy
