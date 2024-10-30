@@ -56,20 +56,21 @@ def get_taski_data(args, full_data, full_adj_list_prev, i_task,
   ''' 初始化adj_list '''
   max_idx = max(src_l.max(), dst_l.max())
   train_adj_list, full_adj_list = [[] for _ in range(max_idx + 1)], [[] for _ in range(max_idx + 1)]
-  if full_adj_list_prev is None:
-    # 将过去task的边添加进来
-    prev_src_l = src_l[:task_start_idx]
-    prev_dst_l = dst_l[:task_start_idx]
-    prev_e_idx_l = e_idx_l[:task_start_idx]
-    prev_ts_l = ts_l[:task_start_idx]
-    for src, dst, eidx, ts in zip(prev_src_l, prev_dst_l, prev_e_idx_l, prev_ts_l):
-      train_adj_list[src].append((dst, eidx, ts))
-      train_adj_list[dst].append((src, eidx, ts))
-      full_adj_list[src].append((dst, eidx, ts))
-      full_adj_list[dst].append((src, eidx, ts))
-  else:
-    train_adj_list = full_adj_list_prev
-    full_adj_list = full_adj_list_prev
+  ''' 不包含过去的边 '''
+  # if full_adj_list_prev is None:
+  #   # 将过去task的边添加进来
+  #   prev_src_l = src_l[:task_start_idx]
+  #   prev_dst_l = dst_l[:task_start_idx]
+  #   prev_e_idx_l = e_idx_l[:task_start_idx]
+  #   prev_ts_l = ts_l[:task_start_idx]
+  #   for src, dst, eidx, ts in zip(prev_src_l, prev_dst_l, prev_e_idx_l, prev_ts_l):
+  #     train_adj_list[src].append((dst, eidx, ts))
+  #     train_adj_list[dst].append((src, eidx, ts))
+  #     full_adj_list[src].append((dst, eidx, ts))
+  #     full_adj_list[dst].append((src, eidx, ts))
+  # else:
+  #   train_adj_list = full_adj_list_prev
+  #   full_adj_list = full_adj_list_prev
     
   ''' 向adj_list中添加当前任务的边 '''
   for src, dst, eidx, ts in zip(train_src_l, train_dst_l, train_e_idx_l, train_ts_l):

@@ -185,7 +185,7 @@ def evaluate_cont(auc_matrix):
   
   backward_forget_l = []
   for i_task in range(len(auc_matrix[0])):
-    bf = auc_matrix[-1][i_task] - auc_matrix[i_task][i_task]
+    bf = auc_matrix[i_task][i_task] - auc_matrix[-1][i_task]
     backward_forget_l.append(bf)
   mean_bf = round(np.mean(backward_forget_l), 4)
   
@@ -222,7 +222,7 @@ for i_run in range(args.n_run):
   ''' Task Loop '''
   for i_task, (train_loader, val_loader, test_loader) in enumerate(task_dataloader_l):
     train_ngh_finder = train_ngh_finder_l[i_task]
-    ful_ngh_finder = full_ngh_finder_l[i_task]
+    full_ngh_finder = full_ngh_finder_l[i_task]
     
     lr_optimizer = torch.optim.Adam(lr_model.parameters(), lr=args.lr)
 
@@ -236,7 +236,7 @@ for i_run in range(args.n_run):
       tgan.ngh_finder = train_ngh_finder
       train_epoch(tgan, lr_model, train_loader, lr_optimizer)
       
-      tgan.ngh_finder = ful_ngh_finder
+      tgan.ngh_finder = full_ngh_finder
       val_metrics = eval_epoch(tgan, lr_model, val_loader)
       test_metrics = eval_epoch(tgan, lr_model, test_loader)
       
